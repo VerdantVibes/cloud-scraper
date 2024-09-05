@@ -4,18 +4,28 @@ import string
 import queue
 import threading
 import logging
+import tempfile
 
+lock = threading.Lock()
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-def worker(task_queue, url):
+data_array = {}
+
+def create_unique_temp_directory():
+    with lock:
+        driver_temp_dir = tempfile.mkdtemp()
+    return driver_temp_dir
+per_thread = 5
+def worker(task_queue, url, user_data_dir):
     while not task_queue.empty():
         try:
-            idx, keyword = task_queue.get_nowait()
-            scraper = WebScraper()
-            logging.info(f"Thread {threading.current_thread().name} processing keyword: {keyword}")
-            scraper.scrape_website(url, keyword, idx)
+            idx, keyword, start_page = task_queue.get_nowait()
+            scraper = WebScraper(user_data_dir)
+            logging.info(f"Thread {idx} processing keyword: {keyword}")
+            scraper.scrape_website(url, keyword, data_array, start_page, per_thread)
             task_queue.task_done()
+            print(data_array)
         except queue.Empty:
             break
         except Exception as e:
@@ -25,15 +35,19 @@ def parallel_controller(keywords):
     url = "https://registry.cno.org/Search/Search"
     task_queue = queue.Queue()
 
-    # Enqueue all tasks
+    # # Enqueue all tasks
+    # for idx, keyword in enumerate(keywords):
+    #     task_queue.put((idx, keyword))
     for idx, keyword in enumerate(keywords):
-        task_queue.put((idx, keyword))
+        for value in range(1, 142, per_thread):
+            task_queue.put((idx, keyword, value))
 
     # Use ThreadPoolExecutor to manage parallel execution
     max_workers = 4
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        for _ in range(max_workers):
-            executor.submit(worker, task_queue, url)
+        for i in range(max_workers):
+            user_data_dir = create_unique_temp_directory()
+            executor.submit(worker, task_queue, url, user_data_dir)
 
     # Wait for all tasks to be processed
     task_queue.join()
