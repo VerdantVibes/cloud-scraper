@@ -30,10 +30,7 @@ class WebScraper:
         }
         chrome_options.add_experimental_option("prefs", prefs)
         
-        # chromedriver_path = uc.install()
-        # chromedriver_path = "C:\\Users\\Administrator\\AppData\\Roaming\\undetected_chromedriver\\undetected\\chromedriver-win32\\chromedriver.exe"
         chromedriver_path = "C:\\Users\\Administrator\\AppData\\Roaming\\undetected_chromedriver\\undetected\\chromedriver-win32\\chromedriver.exe"
-
 
         if not os.path.isfile(chromedriver_path):
             raise FileNotFoundError(f"Cannot find chromedriver at {chromedriver_path}")
@@ -71,14 +68,6 @@ class WebScraper:
                 # Scrape data
                 self.scrape_table(data_array)
                 
-                # Save data to CSV
-                # Check if there is a next button and click it
-                # try:
-                #     next_button = self.driver.find_element(By.CSS_SELECTOR, "#mainContent > div > div.pagination > a")
-                #     next_button.click()
-                #     time.sleep(3) # not professional
-                # except:
-                #     break  # Exit the loop if there is no next button
                 i = i + 1
             print(lastname, data_array)
 
@@ -89,7 +78,6 @@ class WebScraper:
 
     def scrape_table(self, data_array):
         table = self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#mainContent > div > div.table-responsive > table")))
-        # table = self.driver.find_element(By.CSS_SELECTOR, "#mainContent > div > div.table-responsive > table")
         rows = table.find_elements(By.CSS_SELECTOR, "tbody tr")
         for row in rows:
             cells = row.find_elements(By.CSS_SELECTOR, "td")
@@ -100,7 +88,6 @@ class WebScraper:
                 if a_tag:
                     row_data.append(a_tag.text.strip())
                     url = a_tag.get_attribute("href")
-                    # row_data.append(a_tag.get_attribute("href"))
                 else:
                     row_data.append(cell.text.strip())
             if url:

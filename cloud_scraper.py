@@ -79,9 +79,14 @@ class Cloud_Scraper:
                 )
                 data["Address1"] = address_info[4].strip()  # Extract the address line
                 CityProv = address_info[6].strip()
-                city, prov = CityProv.split(", ")
-                data["City"] = city
-                data["Prov"] = prov
+                if ", " in CityProv:
+                    city, prov = CityProv.split(", ")
+                    data["City"] = city
+                    data["Prov"] = prov
+                else:
+                    # Handle the case where there is no comma
+                    data["City"] = CityProv
+                    data["Prov"] = "" 
                 data["Post"] = address_info[8].strip()  # Extract the postal code
                 Phone = address_info[12].strip()
                 phone_digits = re.sub(r"\D", "", Phone)

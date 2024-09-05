@@ -1,5 +1,6 @@
 from uc_scraper import WebScraper
 from concurrent.futures import ThreadPoolExecutor
+from cloud_scraper import Cloud_Scraper
 import string
 import queue
 import threading
@@ -16,7 +17,7 @@ def create_unique_temp_directory():
     with lock:
         driver_temp_dir = tempfile.mkdtemp()
     return driver_temp_dir
-per_thread = 5
+per_thread = 5 # pages one thread execute
 def worker(task_queue, url, user_data_dir):
     while not task_queue.empty():
         try:
@@ -39,7 +40,7 @@ def parallel_controller(keywords):
     # for idx, keyword in enumerate(keywords):
     #     task_queue.put((idx, keyword))
     for idx, keyword in enumerate(keywords):
-        for value in range(1, 142, per_thread):
+        for value in range(1, 32, per_thread):
             task_queue.put((idx, keyword, value))
 
     # Use ThreadPoolExecutor to manage parallel execution
@@ -72,14 +73,26 @@ def generate_keywords():
     
     return keywords
 
+# save data using Cloud_Scraper
+def process_cloudscraper_url(url):
+    print(url)
+    scraper = Cloud_Scraper(url)
+    scraper.run()
+
 def main():
     # Generate Keywords for Last Name
-    keywords = generate_keywords()
+    # keywords = generate_keywords()
+    keywords = ["aa"]
     print(keywords)
     logging.info(f"Generated {len(keywords)} keywords")
     
     # Thread function to parallel webdriver functionality
     parallel_controller(keywords)
+    
+    # get detail data from date_array
+    url_list = list(data_array.keys())
+    for url in url_list:
+        process_cloudscraper_url(url)
 
 if __name__ == "__main__":
     main()
