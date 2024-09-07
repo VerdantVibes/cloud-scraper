@@ -26,7 +26,7 @@ class Cloud_Scraper:
                     key = columns[0].text.strip()
                     value = columns[1].text.strip()
                     data[key] = value
-                    print(key, " : ", value)
+                    # print(key, " : ", value)
             tables = soup.select("#general table")
 
             # Iterate through each table and check for the headers you're interested in
@@ -44,8 +44,8 @@ class Cloud_Scraper:
                         if len(cols) == 2:  # Check if the row has exactly two columns
                             data["Specialty Certificate"] = cols[0].text.strip()
                             data["Status"] = cols[1].text.strip()
-                            print("Specialty Certificate : ", cols[0].text.strip())
-                            print("Status : ", cols[1].text.strip())
+                            # print("Specialty Certificate : ", cols[0].text.strip())
+                            # print("Status : ", cols[1].text.strip())
                             break  # Break after finding the first match
 
             # Scrape the Name
@@ -61,14 +61,15 @@ class Cloud_Scraper:
                 "#mainContent > div:nth-child(1) > h2 > a"
             ).text.strip()
             data["Extra1"] = extra1
-            print("Extra1 : ", extra1)
+            # print("Extra1 : ", extra1)
 
             rn_employment_section = soup.find("h2", string="RN Employment")
             if rn_employment_section:
-                print("RN Employment")
+                empolyment_rn = 1
+                # print("RN Employment")
             else:
                 rn_employment_section = soup.find("h2", string="RPN Employment")
-                print("RPN Employment")
+                # print("RPN Employment")
             if rn_employment_section:
                 # Traverse to the parent div which contains the required information
                 employment_div = rn_employment_section.find_parent("div", class_="well")
@@ -89,8 +90,9 @@ class Cloud_Scraper:
                     data["Prov"] = "" 
                 data["Post"] = address_info[8].strip()  # Extract the postal code
                 Phone = address_info[12].strip()
-                phone_digits = re.sub(r"\D", "", Phone)
-                data["Phone"] = phone_digits  # Extract the phone number
+                if Phone:
+                    phone_digits = re.sub(r"\D", "", Phone)
+                    data["Phone"] = phone_digits  # Extract the phone number
 
                 # Extract Start Date from the second column
                 start_date_div = employment_div.find("div", class_="col-md-3")
@@ -105,12 +107,12 @@ class Cloud_Scraper:
                     else ""
                 )
                 data["End Date"] = end_date.strip() if end_date else ""
-                print("Address1: ", data["Address1"])
+                # print("Address1: ", data["Address1"])
                 # print("CityProv: ", data["CityProv"])
-                print("Phone: ", data["Phone"])
-                print("Post: ", data["Post"])
-                print("Start Date: ", data["Start Date"])
-                print("End Date : ", data["End Date"])
+                # print("Phone: ", data["Phone"])
+                # print("Post: ", data["Post"])
+                # print("Start Date: ", data["Start Date"])
+                # print("End Date : ", data["End Date"])
 
             return data
         else:
@@ -210,11 +212,12 @@ class Cloud_Scraper:
 
     def run(self):
         data = self.scrape_data()
-        if data:
-            self.save_to_excel(data)
+        return data
+        # if data:
+            # self.save_to_excel(data)
 
 
 # Example usage
-url = "https://registry.cno.org/Search/Details/332d3902-ed7c-4275-b115-76eaa7cfaa2a"
-scraper = Cloud_Scraper(url)
-scraper.run()
+# url = "https://registry.cno.org/Search/Details/332d3902-ed7c-4275-b115-76eaa7cfaa2a"
+# scraper = Cloud_Scraper(url)
+# scraper.run()

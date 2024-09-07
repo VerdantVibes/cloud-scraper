@@ -47,6 +47,8 @@ class WebScraper:
         try:
             self.driver.maximize_window()
             self.driver.get(url)
+            # time.sleep(5)
+            # last_name_input = self.wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "#LastName")))
             time.sleep(5)
             
             # Find the input field and enter the keyword "aa"
@@ -58,18 +60,20 @@ class WebScraper:
             search_button.click()
 
             # Wait for the results page to load
-            time.sleep(5)  # Adjust sleep time as necessary
+            # time.sleep(5)  # Adjust sleep time as necessary
+            self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#mainContent > div > div.table-responsive > table")))
             i = start_page
             while i < start_page + per_thread:
                 base_url = "https://registry.cno.org/Search/SearchResultsPartial?page={}&sortBy=lastname&sortAsync=True&usePagingCookie=True"
                 base_url = base_url.format(i)
                 self.driver.get(base_url)
-                time.sleep(5)
+                time.sleep(2)
                 # Scrape data
                 self.scrape_table(data_array)
                 
                 i = i + 1
-            print(lastname, data_array)
+            # print(lastname, data_array)
+            print(f"----------------Success------------------------{lastname}, {start_page}")
 
         except Exception as e:
             print(e)
