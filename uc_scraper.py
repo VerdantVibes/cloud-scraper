@@ -72,7 +72,6 @@ class WebScraper:
                 self.scrape_table(data_array)
                 
                 i = i + 1
-            # print(lastname, data_array)
             print(f"----------------Success------------------------{lastname}, {start_page}")
 
         except Exception as e:

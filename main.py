@@ -27,7 +27,6 @@ def worker(task_queue, url, user_data_dir):
             logging.info(f"Thread {idx} processing keyword: {keyword}, {start_page}")
             scraper.scrape_website(url, keyword, data_array, start_page, per_thread)
             task_queue.task_done()
-            # print(data_array)
         except queue.Empty:
             break
         except Exception as e:
@@ -183,7 +182,6 @@ def main():
             "pref",
         ]
     )
-    # print(data_list)
     print("finished")
     for new_data in data_list:
         try:

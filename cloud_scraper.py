@@ -26,7 +26,6 @@ class Cloud_Scraper:
                     key = columns[0].text.strip()
                     value = columns[1].text.strip()
                     data[key] = value
-                    # print(key, " : ", value)
             tables = soup.select("#general table")
 
             # Iterate through each table and check for the headers you're interested in
@@ -44,8 +43,6 @@ class Cloud_Scraper:
                         if len(cols) == 2:  # Check if the row has exactly two columns
                             data["Specialty Certificate"] = cols[0].text.strip()
                             data["Status"] = cols[1].text.strip()
-                            # print("Specialty Certificate : ", cols[0].text.strip())
-                            # print("Status : ", cols[1].text.strip())
                             break  # Break after finding the first match
 
             # Scrape the Name
@@ -61,15 +58,12 @@ class Cloud_Scraper:
                 "#mainContent > div:nth-child(1) > h2 > a"
             ).text.strip()
             data["Extra1"] = extra1
-            # print("Extra1 : ", extra1)
 
             rn_employment_section = soup.find("h2", string="RN Employment")
             if rn_employment_section:
                 empolyment_rn = 1
-                # print("RN Employment")
             else:
                 rn_employment_section = soup.find("h2", string="RPN Employment")
-                # print("RPN Employment")
             if rn_employment_section:
                 # Traverse to the parent div which contains the required information
                 employment_div = rn_employment_section.find_parent("div", class_="well")
@@ -107,12 +101,6 @@ class Cloud_Scraper:
                     else ""
                 )
                 data["End Date"] = end_date.strip() if end_date else ""
-                # print("Address1: ", data["Address1"])
-                # print("CityProv: ", data["CityProv"])
-                # print("Phone: ", data["Phone"])
-                # print("Post: ", data["Post"])
-                # print("Start Date: ", data["Start Date"])
-                # print("End Date : ", data["End Date"])
 
             return data
         else:
@@ -178,14 +166,6 @@ class Cloud_Scraper:
                 ]
             )
 
-        # new_data = {
-        #     "Name": data.get("Name"),
-        #     "Category": data.get("Category"),
-        #     "Class": data.get("Class"),
-        #     "Registration Number": data.get("Registration Number"),
-        #     "Registration Status": data.get("Registration Status"),
-        #     "Initial Registration with CNO": data.get("Initial Registration with CNO"),
-        # }
         new_data = {
             "seq": next_seq,
             "first": data.get("FirstName"),
