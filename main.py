@@ -17,7 +17,7 @@ lock = threading.Lock()
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
-proxy_url = "http://ptm24webscraping:ptmxx248Dime_country-us@us.proxy.iproyal.com:12323"
+proxy_url = ""
 data_array = {}
 data_check = {}
 
