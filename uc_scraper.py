@@ -51,7 +51,6 @@ class WebScraper:
             try:
                 self.driver.maximize_window()
                 self.driver.get(url)
-                # last_name_input = self.wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "#LastName")))
                 time.sleep(5)
 
                 # Find the input field and enter the keyword "aa"
@@ -63,7 +62,6 @@ class WebScraper:
                 search_button.click()
 
                 # Wait for the results page to load
-                # self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#mainContent > div > div.table-responsive > table")))
                 i = start_page
                 if debugging == 0:
                     debugging = start_page  # for debugging
