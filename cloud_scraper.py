@@ -13,6 +13,7 @@ class Cloud_Scraper:
 
     def close_scraper(self):
         self.scraper.close()
+
     # scrape data and save it to //data = {}
     def scrape_data(self):
         try:
@@ -43,7 +44,9 @@ class Cloud_Scraper:
                         rows = table.find_all("tr")
                         for row in rows[1:]:  # Skip the header row
                             cols = row.find_all("td")
-                            if len(cols) == 2:  # Check if the row has exactly two columns
+                            if (
+                                len(cols) == 2
+                            ):  # Check if the row has exactly two columns
                                 data["Specialty Certificate"] = cols[0].text.strip()
                                 data["Status"] = cols[1].text.strip()
                                 break  # Break after finding the first match
@@ -54,13 +57,13 @@ class Cloud_Scraper:
                     name_parts = name.text.strip().split()
                     data["FirstName"] = name_parts[0]
                     data["LastName"] = (
-                        " ".join(name_parts[2:]) if len(name_parts) > 2 else name_parts[1]
+                        " ".join(name_parts[2:])
+                        if len(name_parts) > 2
+                        else name_parts[1]
                     )
 
                 # Scrape Extra1
-                extra1 = soup.select_one(
-                    "#mainContent > div:nth-child(1) > h2 > a"
-                )
+                extra1 = soup.select_one("#mainContent > div:nth-child(1) > h2 > a")
                 if extra1:
                     data["Extra1"] = extra1.text.strip()
 
@@ -71,16 +74,18 @@ class Cloud_Scraper:
                     rn_employment_section = soup.find("h2", string="RPN Employment")
                 if rn_employment_section:
                     # Traverse to the parent div which contains the required information
-                    employment_div = rn_employment_section.find_parent("div", class_="well")
+                    employment_div = rn_employment_section.find_parent(
+                        "div", class_="well"
+                    )
 
                     # Extract address information from the first column
                     if employment_div:
-                        address_content = (
-                            employment_div.find("div", class_="col-md-6")
-                        )
+                        address_content = employment_div.find("div", class_="col-md-6")
                         if address_content:
                             address_info = address_content.find("p").contents
-                            data["Address1"] = address_info[4].strip()  # Extract the address line
+                            data["Address1"] = address_info[
+                                4
+                            ].strip()  # Extract the address line
                             CityProv = address_info[6].strip()
                             if ", " in CityProv:
                                 city, prov = CityProv.split(", ")
@@ -89,30 +94,44 @@ class Cloud_Scraper:
                             else:
                                 # Handle the case where there is no comma
                                 data["City"] = CityProv
-                                data["Prov"] = "" 
-                            data["Post"] = address_info[8].strip()  # Extract the postal code
+                                data["Prov"] = ""
+                            data["Post"] = address_info[
+                                8
+                            ].strip()  # Extract the postal code
                             Phone = address_info[12].strip()
                             if Phone:
                                 phone_digits = re.sub(r"\D", "", Phone)
                                 data["Phone"] = phone_digits  # Extract the phone number
 
                             # Extract Start Date from the second column
-                            start_date_div = employment_div.find("div", class_="col-md-3")
+                            start_date_div = employment_div.find(
+                                "div", class_="col-md-3"
+                            )
                             try:
-                                data["Start Date"] = start_date_div.find_next("br").next_sibling.strip()
+                                data["Start Date"] = start_date_div.find_next(
+                                    "br"
+                                ).next_sibling.strip()
 
                                 # Extract End Date from the third column (if available)
                                 if end_date_div:
-                                    end_date_div = start_date_div.find_next_sibling("div")
+                                    end_date_div = start_date_div.find_next_sibling(
+                                        "div"
+                                    )
                                     if end_date_div:
                                         end_date = (
-                                            end_date_div.find_next("br").next_sibling.strip()
+                                            end_date_div.find_next(
+                                                "br"
+                                            ).next_sibling.strip()
                                             if end_date_div.find_next("br").next_sibling
-                                            and end_date_div.find_next("br").next_sibling.strip()[0].isdigit()
+                                            and end_date_div.find_next("br")
+                                            .next_sibling.strip()[0]
+                                            .isdigit()
                                             else ""
                                         )
                                         if end_date:
-                                            data["End Date"] = end_date.strip() if end_date else ""
+                                            data["End Date"] = (
+                                                end_date.strip() if end_date else ""
+                                            )
                             except:
                                 isNo_end_date = 1
                 return data
