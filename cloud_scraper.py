@@ -2,7 +2,6 @@ import cloudscraper
 from ptm_format import splitfullname, fit_phone
 from bs4 import BeautifulSoup
 import csv
-import threading
 
 
 class Cloud_Scraper:
