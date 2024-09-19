@@ -1,8 +1,8 @@
 import cloudscraper
+from ptm_format import splitfullname, fit_phone
 from bs4 import BeautifulSoup
-import pandas as pd
-import os
-import re
+import csv
+import threading
 
 
 class Cloud_Scraper:
@@ -11,11 +11,33 @@ class Cloud_Scraper:
         self.url = url
         self.scraper = cloudscraper.create_scraper()
 
-    def close_scraper(self):
-        self.scraper.close()
+    # Get current line
+    def get_last_seq_number(self, file_path):
+        def read_last_non_empty_line(file_path):
+            with open(file_path, "rb") as f:
+                f.seek(-2, 2)  # Go to the second last byte
+                while f.read(1) != b"\n":  # Until EOL is found
+                    f.seek(-2, 1)  # Go back another byte
+                    if f.tell() == 0:
+                        f.seek(0)
+                        break
+                last_line = f.readline().decode().strip()
+                while not last_line:
+                    last_line = f.readline().decode().strip()
+            return last_line
 
-    # scrape data and save it to //data = {}
-    def scrape_data(self):
+        def extract_seq_from_line(line):
+            if line:
+                parts = line.split(",")
+                if parts and parts[0].isdigit():
+                    return int(parts[0])
+            return 0
+
+        last_line = read_last_non_empty_line(file_path)
+        return extract_seq_from_line(last_line)
+
+    # Scrape data and save it to //data = {}
+    def scrape_data(self, lock):
         try:
             response = self.scraper.get(self.url)
             if response.status_code == 200:
@@ -29,7 +51,7 @@ class Cloud_Scraper:
                     if len(columns) == 2:
                         key = columns[0].text.strip()
                         value = columns[1].text.strip()
-                        data[key] = value
+                        data[key] = value.upper()
                 tables = soup.select("#general table")
 
                 # Iterate through each table and check for the headers you're interested in
@@ -47,25 +69,27 @@ class Cloud_Scraper:
                             if (
                                 len(cols) == 2
                             ):  # Check if the row has exactly two columns
-                                data["Specialty Certificate"] = cols[0].text.strip()
-                                data["Status"] = cols[1].text.strip()
+                                data["Specialty Certificate"] = (
+                                    cols[0].text.strip().upper()
+                                )
+                                data["Status"] = cols[1].text.strip().upper()
                                 break  # Break after finding the first match
 
                 # Scrape the Name
                 name = soup.select_one("#mainContent > div:nth-child(1) > h1")
                 if name:
-                    name_parts = name.text.strip().split()
-                    data["FirstName"] = name_parts[0]
-                    data["LastName"] = (
-                        " ".join(name_parts[2:])
-                        if len(name_parts) > 2
-                        else name_parts[1]
-                    )
+                    name_text = name.text.strip()
+                    # Split the name into parts
+                    first_name, last_name, suffix = splitfullname(name_text)
+                    # Last name is the last factor
+                    data["LastName"] = last_name.upper()
+                    # First name is everything except the last name
+                    data["FirstName"] = first_name.upper()
 
                 # Scrape Extra1
                 extra1 = soup.select_one("#mainContent > div:nth-child(1) > h2 > a")
                 if extra1:
-                    data["Extra1"] = extra1.text.strip()
+                    data["Extra1"] = extra1.text.strip().upper()
 
                 rn_employment_section = soup.find("h2", string="RN Employment")
                 if rn_employment_section:
@@ -80,158 +104,346 @@ class Cloud_Scraper:
 
                     # Extract address information from the first column
                     if employment_div:
-                        address_content = employment_div.find("div", class_="col-md-6")
-                        if address_content:
+                        address_contents = employment_div.find_all(
+                            "div", class_="col-md-6"
+                        )
+                        data_firm = []
+                        data_add1 = []
+                        data_city = []
+                        data_prov = []
+                        data_post = []
+                        data_phone = []
+                        data_startdate = []
+                        data_enddate = []
+                        for address_content in address_contents:
+                            firm_content = address_content.find("b")
+                            if firm_content:
+                                data_firm.append(firm_content.text.strip())
+                            else:
+                                data_firm.append("")
                             address_info = address_content.find("p").contents
-                            data["Address1"] = address_info[
-                                4
-                            ].strip()  # Extract the address line
+                            data_add1.append(
+                                address_info[4].strip()
+                            )  # Extract the address line
                             CityProv = address_info[6].strip()
                             if ", " in CityProv:
-                                city, prov = CityProv.split(", ")
-                                data["City"] = city
-                                data["Prov"] = prov
+                                parts = CityProv.split(", ")
+                                city = parts[0]
+                                prov = (
+                                    parts[1]
+                                    if len(parts) > 1 and parts[1] != ""
+                                    else (parts[2] if len(parts) > 2 else None)
+                                )
+                                data_city.append(city)
+                                data_prov.append(prov)
                             else:
                                 # Handle the case where there is no comma
-                                data["City"] = CityProv
-                                data["Prov"] = ""
-                            data["Post"] = address_info[
-                                8
-                            ].strip()  # Extract the postal code
+                                data_city.append(CityProv)
+                                data_prov.append("")
+                            try:
+                                post_data = address_info[8].strip()
+                                if post_data:
+                                    post_data = post_data.replace(" ", "").upper()
+                                    data_post.append(
+                                        post_data
+                                    )  # Extract the postal code, remove spaces, and convert to uppercase
+                                else:
+                                    data_post.append("")
+                            except:
+                                data_post.append("")
                             Phone = address_info[12].strip()
                             if Phone:
-                                phone_digits = re.sub(r"\D", "", Phone)
-                                data["Phone"] = phone_digits  # Extract the phone number
+                                phone_digits = fit_phone(Phone)
+                                data_phone.append(
+                                    phone_digits
+                                )  # Extract the phone number
+                            else:
+                                data_phone.append("")
 
-                            # Extract Start Date from the second column
-                            start_date_div = employment_div.find(
-                                "div", class_="col-md-3"
-                            )
-                            try:
-                                data["Start Date"] = start_date_div.find_next(
+                        # Iterate over the div elements to extract start and end dates
+                        date_divs = employment_div.find_all("div", class_="col-md-3")
+                        # Iterate over the div elements to extract start and end dates
+                        for div in date_divs:
+                            strong_tag = div.find("strong")
+                            if strong_tag and "Start Date" in strong_tag.text:
+                                # Extract the start date by navigating through the <br> tag
+                                start_date = strong_tag.find_next(
                                     "br"
                                 ).next_sibling.strip()
-
-                                # Extract End Date from the third column (if available)
-                                if end_date_div:
-                                    end_date_div = start_date_div.find_next_sibling(
-                                        "div"
-                                    )
-                                    if end_date_div:
+                                data_startdate.append(start_date)
+                            elif strong_tag and "End Date" in strong_tag.text:
+                                # Extract the end date by navigating through the <br> tag
+                                try:
+                                    end_data_div = strong_tag.find_next("br")
+                                    if end_data_div:
                                         end_date = (
-                                            end_date_div.find_next(
+                                            strong_tag.find_next(
                                                 "br"
                                             ).next_sibling.strip()
-                                            if end_date_div.find_next("br").next_sibling
-                                            and end_date_div.find_next("br")
-                                            .next_sibling.strip()[0]
-                                            .isdigit()
+                                            if strong_tag.find_next_sibling(
+                                                "br"
+                                            ).next_sibling
                                             else ""
                                         )
                                         if end_date:
-                                            data["End Date"] = (
-                                                end_date.strip() if end_date else ""
-                                            )
-                            except:
-                                isNo_end_date = 1
-                return data
+                                            data_enddate.append(end_date)
+                                except:
+                                    data_enddate.append("")
+                        # New lists to store the modified data
+                        new_firm = []
+                        new_add1 = []
+                        new_city = []
+                        new_prov = []
+                        new_post = []
+                        new_phone = []
+                        new_startdate = []
+                        new_enddate = []
+                        # Process each entry in the input lists
+                        for i in range(len(data_firm)):
+                            # Split the phone numbers for the ith firm
+                            phones = data_phone[i].split(";")
+                            # Create new entries for each phone number
+                            for phone in phones:
+                                new_firm.append(data_firm[i].upper())
+                                new_add1.append(data_add1[i].upper())
+                                new_city.append(data_city[i].upper())
+                                new_prov.append(data_prov[i].upper())
+                                new_post.append(data_post[i].upper())
+                                new_phone.append(
+                                    phone.strip().upper()
+                                )  # Strip to remove any extra spaces
+                                new_startdate.append(data_startdate[i].upper())
+                                new_enddate.append(data_enddate[i].upper())
+                        for i in range(len(new_firm)):
+                            with lock:
+                                last_line = self.get_last_seq_number("scrape_data.csv")
+                                res_data = [
+                                    last_line + 1,
+                                    data.get("LastName"),
+                                    data.get("FirstName"),
+                                    "",
+                                    "",
+                                    new_firm[i],
+                                    new_add1[i],
+                                    "",
+                                    new_city[i],
+                                    new_prov[i],
+                                    new_post[i],
+                                    new_phone[i],
+                                    "",
+                                    "",
+                                    "",
+                                    data.get("Registration Status"),
+                                    "",
+                                    data.get("Registration Number"),
+                                    "",
+                                    "",
+                                    data.get("Category"),
+                                    "",
+                                    "",
+                                    "",
+                                    "",
+                                    "",
+                                    "",
+                                    "",
+                                    "",
+                                    "",
+                                    "",
+                                    "",
+                                    data.get("Extra1"),
+                                    new_startdate[i],
+                                    new_enddate[i],
+                                    data.get("Class"),
+                                    data.get("Initial Registration with CNO"),
+                                    data.get("Specialty Certificate"),
+                                    data.get("Status"),
+                                    "",
+                                    "",
+                                ]
+                                with open(
+                                    "scrape_data.csv", "a", newline="", encoding="utf-8"
+                                ) as nsf:
+                                    writer = csv.writer(nsf)
+                                    writer.writerow(
+                                        res_data
+                                    )  # Append res_data as a new row in the CSV file
+                        if len(new_firm) == 0:
+                            with lock:
+                                last_line = self.get_last_seq_number("scrape_data.csv")
+                                res_data = [
+                                    last_line + 1,
+                                    data.get("LastName"),
+                                    data.get("FirstName"),
+                                    "",
+                                    "",
+                                    "",
+                                    "",
+                                    "",
+                                    "",
+                                    "",
+                                    "",
+                                    "",
+                                    "",
+                                    "",
+                                    "",
+                                    data.get("Registration Status"),
+                                    "",
+                                    data.get("Registration Number"),
+                                    "",
+                                    "",
+                                    data.get("Category"),
+                                    "",
+                                    "",
+                                    "",
+                                    "",
+                                    "",
+                                    "",
+                                    "",
+                                    "",
+                                    "",
+                                    "",
+                                    "",
+                                    data.get("Extra1"),
+                                    "",
+                                    "",
+                                    data.get("Class"),
+                                    data.get("Initial Registration with CNO"),
+                                    data.get("Specialty Certificate"),
+                                    data.get("Status"),
+                                    "",
+                                    "",
+                                ]
+                                with open(
+                                    "scrape_data.csv", "a", newline="", encoding="utf-8"
+                                ) as nsf:
+                                    writer = csv.writer(nsf)
+                                    writer.writerow(
+                                        res_data
+                                    )  # Append res_data as a new row in the CSV file
+                    else:
+                        with lock:
+                            last_line = self.get_last_seq_number("scrape_data.csv")
+                            res_data = [
+                                last_line + 1,
+                                data.get("LastName"),
+                                data.get("FirstName"),
+                                "",
+                                "",
+                                "",
+                                "",
+                                "",
+                                "",
+                                "",
+                                "",
+                                "",
+                                "",
+                                "",
+                                "",
+                                data.get("Registration Status"),
+                                "",
+                                data.get("Registration Number"),
+                                "",
+                                "",
+                                data.get("Category"),
+                                "",
+                                "",
+                                "",
+                                "",
+                                "",
+                                "",
+                                "",
+                                "",
+                                "",
+                                "",
+                                "",
+                                data.get("Extra1"),
+                                "",
+                                "",
+                                data.get("Class"),
+                                data.get("Initial Registration with CNO"),
+                                data.get("Specialty Certificate"),
+                                data.get("Status"),
+                                "",
+                                "",
+                            ]
+                            with open(
+                                "scrape_data.csv", "a", newline="", encoding="utf-8"
+                            ) as nsf:
+                                writer = csv.writer(nsf)
+                                writer.writerow(
+                                    res_data
+                                )  # Append res_data as a new row in the CSV file
+                else:
+                    with lock:
+                        last_line = self.get_last_seq_number("scrape_data.csv")
+                        res_data = [
+                            last_line + 1,
+                            data.get("LastName"),
+                            data.get("FirstName"),
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            data.get("Registration Status"),
+                            "",
+                            data.get("Registration Number"),
+                            "",
+                            "",
+                            data.get("Category"),
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            data.get("Extra1"),
+                            "",
+                            "",
+                            data.get("Class"),
+                            data.get("Initial Registration with CNO"),
+                            data.get("Specialty Certificate"),
+                            data.get("Status"),
+                            "",
+                            "",
+                        ]
+                        with open(
+                            "scrape_data.csv", "a", newline="", encoding="utf-8"
+                        ) as nsf:
+                            writer = csv.writer(nsf)
+                            writer.writerow(res_data)
+
+                print(f"Sucess-----{self.url}-------")
             else:
-                # print(f"Failed to retrieve data. Status code: {response.status_code}")
                 print(f"failed to cloud_scraper--------{self.url}----------")
                 return None
         except:
             print(f"failed to cloud_scraper------{self.url}---------")
             return None
 
-    # save to excel file
-    def save_to_excel(self, data):
-        file_name = "scraped_data.xlsx"
-        # make or add file part
-        if os.path.exists(file_name):
-            df_existing = pd.read_excel(file_name)
-            if "seq" in df_existing.columns:
-                next_seq = df_existing["seq"].max() + 1
-            else:
-                next_seq = 1
-            df = pd.read_excel(file_name)
-        else:
-            next_seq = 1
-            df = pd.DataFrame(
-                columns=[
-                    "seq",
-                    "last",
-                    "first",
-                    "suff",
-                    "off",
-                    "firm",
-                    "addr1",
-                    "addr2",
-                    "city",
-                    "prov",
-                    "post",
-                    "phone",
-                    "fax",
-                    "fax_p",
-                    "ext",
-                    "status",
-                    "gend",
-                    "lic",
-                    "lic_p",
-                    "f",
-                    "b1",
-                    "b2",
-                    "i1",
-                    "i2",
-                    "i3",
-                    "i4",
-                    "email",
-                    "email_p",
-                    "email_s",
-                    "yog",
-                    "lang",
-                    "prof",
-                    "extra1_status",
-                    "extra2_initial_registration",
-                    "extra3_prescribe_fields",
-                    "extra4",
-                    "extra5_permit_issued",
-                    "extra6",
-                    "extra7",
-                    "ims",
-                    "pref",
-                ]
-            )
+    # Run Scraper
+    def run(self, lock):
+        self.scrape_data(lock)
 
-        new_data = {
-            "seq": next_seq,
-            "first": data.get("FirstName"),
-            "last": data.get("LastName"),
-            "b1": data.get("Category"),
-            "lic": data.get("Registration Number"),
-            "status": data.get("Registration Status"),
-            "addr1": data.get("Address1"),
-            "city": data.get("City"),
-            "prov": data.get("Prov"),
-            "post": data.get("Post"),
-            "phone": data.get("Phone"),
-            "extra1_status": data.get("Extra1"),
-            "extra2_initial_registration": data.get("Start Date"),
-            "extra3_prescribe_fields": data.get("End Date"),
-            "extra4": data.get("Class"),
-            "extra5_permit_issued": data.get("Initial Registration with CNO"),
-            "extra6": data.get("Specialty Certificate"),
-            "extra7": data.get("Status"),
-        }
-
-        df = pd.concat([df, pd.DataFrame([new_data])], ignore_index=True)
-        df.to_excel(file_name, index=False)
-
-    def run(self):
-        data = self.scrape_data()
-        return data
+    # Close scraper
+    def close_scraper(self):
+        self.scraper.close()
 
 
-# Example usage
-# url = "https://registry.cno.org/Search/Details/3532b043-b71f-4108-931f-da9e0f9caaae"
+# lock = threading.Lock()
+# url = "https://registry.cno.org/Search/Details/0a90160a-4ab8-4155-a83c-be5dc1b8a3cc"
 # scraper = Cloud_Scraper(url)
-# scraper.run()
+# scraper.run(lock)
+# scraper.close_scraper()
