@@ -26,6 +26,7 @@ header = ["url"]
 lock = threading.Lock()
 worker_thread = threading.Lock()
 websitescp_thread = threading.Lock()
+end_page = 152
 
 
 # Save data from url using Cloud_Scraper
@@ -80,7 +81,7 @@ def parallel_controller(keywords):
     task_queue = queue.Queue()
 
     for idx, keyword in enumerate(keywords):
-        for value in range(1, 152, per_thread):
+        for value in range(1, end_page, per_thread):
             task_queue.put((idx, keyword, value))
 
     UserName = getpass.getuser()
@@ -120,7 +121,6 @@ def generate_keywords():
 def main():
     # Generate Keywords for Last Name
     keywords = generate_keywords()
-    # keywords = ["aa"]
     print(keywords)
     logging.info(f"Generated {len(keywords)} keywords")
 

@@ -2,7 +2,6 @@ import cloudscraper
 from ptm_format import splitfullname, fit_phone
 from bs4 import BeautifulSoup
 import csv
-import threading
 
 
 class Cloud_Scraper:
@@ -440,10 +439,3 @@ class Cloud_Scraper:
     # Close scraper
     def close_scraper(self):
         self.scraper.close()
-
-
-# lock = threading.Lock()
-# url = "https://registry.cno.org/Search/Details/0a90160a-4ab8-4155-a83c-be5dc1b8a3cc"
-# scraper = Cloud_Scraper(url)
-# scraper.run(lock)
-# scraper.close_scraper()
