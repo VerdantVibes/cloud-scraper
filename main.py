@@ -1,11 +1,11 @@
-from uc_scraper import WebScraper
 from concurrent.futures import ThreadPoolExecutor
 from cloud_scraper import Cloud_Scraper
+from uc_scraper import WebScraper
+import threading
+import tempfile
 import string
 import queue
-import threading
 import logging
-import tempfile
 import time
 import getpass
 import csv
